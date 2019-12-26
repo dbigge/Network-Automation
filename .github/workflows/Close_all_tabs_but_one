@@ -1,0 +1,81 @@
+# $language = "Python"
+# $interface = "1.0"
+
+'''
+CloseAllButCurrentTab.py
+  Last Modified: 10 Nov, 2017, by D.Bigge
+
+DESCRIPTION:
+  Closes all but the current tab in Secure CRT.
+
+  Usage:
+    - Map a button
+    -You'll be prompted to make sure you didn't press the
+          button unintentionally.
+'''
+
+#~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+def CloseTab(objTab):
+    # This is where we suppress error handling so that if we attempt to close
+    # the current tab (AKA "Script Tab"), we'll silently fail.
+    try:
+        objTab.Close()
+    except:
+        return
+
+def Main():
+    # Get a reference to the current script object.  Currently SecureCRT doesn't
+    # allow the script tab to be closed, so it's fairly easy to close all but
+    # the current tab -- just close all tabs, suppressing any errors that might
+    # pop up (especially the one about not being able to close the script tab)
+
+    # Check for command line arguments:
+    #    only_disconnected:  If present, script closes only tabs that are
+    #                        currently disconnected -- leaving connected tabs
+    #                        alive and well.
+    #
+    #            no_prompt:  If present, script proceeds with prejudice, closing
+    #                        tabs without prompting the user with any bothersome
+    #                        "are you sure?" nags.
+
+    bOnlyDisconnected = False
+    bNoPrompt = False
+    for nArgIndex in range(crt.Arguments.Count):
+        if crt.Arguments[nArgIndex].lower().find("only_disconnected") > -1:
+            bOnlyDisconnected = True
+        if crt.Arguments[nArgIndex].lower().find("no_prompt") > -1:
+            bNoPrompt = True
+
+    strWarnPrompt = (
+        "WARNING: This script will close all tabs except the one that is "
+        "currently selected (script tab)!\r\r"
+        "Are you sure you wish to continue?")
+    if bOnlyDisconnected:
+        strWarnPrompt = strWarnPrompt.replace("tabs", "disconnected tabs")
+
+    if not bNoPrompt:
+        if crt.Dialog.MessageBox(strWarnPrompt, "Please Confirm", 308) != 6:
+            return
+
+    # Populate an array of tab references.  We need to operate this way instead
+    # of iterating over a loop because each time a tab is closed, the index of
+    # all the other tabs will also change.  Since it's dynamic that way, we'll
+    # get references to all of the tab objects first, then iterate over all of
+    # the tab references we have.
+    vTabRefs = []
+    for i in range(crt.GetTabCount()):
+        # Arrays in Python are zero-based, but there isn't a 0th tab in
+        # SecureCRT, so adjust accordingly...
+        vTabRefs.append(crt.GetTab(i + 1))
+    # Now that we have a collection of references to tab objects, iterate
+    # through them and close all of them (as desired).
+    for objTab in vTabRefs:
+        # Branch on boolean determining whether or not we care about
+        # disconnected tabs, vs. tabs that are still connected.
+        if bOnlyDisconnected:
+            if not objTab.Session.Connected:
+                CloseTab(objTab)
+        else:
+            CloseTab(objTab)
+
+Main()
